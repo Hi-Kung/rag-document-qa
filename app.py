@@ -1,5 +1,6 @@
 import os
 import io
+import requests
 import streamlit as st
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -99,9 +100,32 @@ def hybrid_retrieve(question: str, vectorstore, all_chunks: list, k: int = 3) ->
         key = doc.page_content[:80]
         scores[key]  = scores.get(key, 0) + BM25_W / (rank + 60)
         doc_map[key] = doc
-
     sorted_keys = sorted(scores, key=lambda x: scores[x], reverse=True)
-    return [doc_map[key] for key in sorted_keys[:k]]
+    mixed_docs = [doc_map[key] for key in sorted_keys[:k]]
+    reranked_docs = rerank_docs(question, mixed_docs, top_n=k)
+    return reranked_docs
+
+def rerank_docs(query: str, docs: list, top_n=3):
+    """
+    对文档列表进行 reranking，返回前 top_n 条。
+    每个文档的 metadata 中会添加 rerank_score 字段
+    """
+    if not docs:
+        return docs
+    resp = requests.post(
+        "https://api.siliconflow.cn/v1/rerank",
+        headers={"Authorization": f"Bearer {SILICONFLOW_KEY}",
+                 "Content-Type": "application/json"},
+        json={"model": "BAAI/bge-reranker-v2-m3", "query": query,
+             "documents": [d.page_content for d in docs],
+             "top_n": top_n, "return_documents": True}
+    )
+    reranked = []
+    for item in resp.json().get("results", []):
+        doc = docs[item["index"]]
+        doc.metadata["rerank_score"] = round(item["relevance_score"], 4)
+        reranked.append(doc)
+    return reranked
 
 # ── RAG 问答 ────────────────────────────────────────
 RAG_PROMPT = """你是文档问答助手。请严格基于以下文档内容回答问题。
@@ -218,7 +242,8 @@ for msg in st.session_state.messages:
             with st.expander(f'📚 参考来源（{len(sources)} 段）'):
                 for i, doc in enumerate(sources, 1):
                     src = doc.metadata.get('source', '未知')
-                    st.markdown(f'**[{i}] `{src}`**')
+                    rerank_score = doc.metadata.get('rerank_score', 0)
+                    st.markdown(f'**[{i}] `{src} (rerank score:{rerank_score:.4f})`**')
                     st.caption(doc.page_content[:150] + '...')
                     if i < len(sources):
                         st.divider()
@@ -246,7 +271,8 @@ if prompt := st.chat_input('基于上传文档提问...'):
             with st.expander(f'📚 参考来源（{len(sources)} 段）'):
                 for i, doc in enumerate(sources, 1):
                     src = doc.metadata.get('source', '未知')
-                    st.markdown(f'**[{i}] `{src}`**')
+                    rerank_score = doc.metadata.get('rerank_score', 0)
+                    st.markdown(f'**[{i}] `{src} (rerank score:{rerank_score:.4f})`**')
                     st.caption(doc.page_content[:150] + '...')
                     if i < len(sources)-1:
                         st.divider()

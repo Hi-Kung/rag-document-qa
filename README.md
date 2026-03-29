@@ -19,7 +19,7 @@ Python 3.11+ LangChain ChromaDB Streamlit DeepSeek V3
 
 ## 🖥️ 界面截图
 
-![qa](./screenshot/qa_demo.png)
+![](./screenshot/qa_demo.png)
 
 ## 🚀 本地运行
 
