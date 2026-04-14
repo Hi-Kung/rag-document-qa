@@ -49,8 +49,7 @@ def parse_uploaded_file(uploaded_file):
 def build_from_documents(docs_list):
     """
     从 Document 列表构建内存向量库。
-    Day 19 用内存模式（不设 persist_directory），用户每次上传自动重建，
-    不存在 Day 18 的 readonly 问题，也不需要 hash 缓存。
+    （不设 persist_directory），用户每次上传自动重建，
     同时返回 chunks 供混合检索使用。
     """
     splitter = RecursiveCharacterTextSplitter(
