@@ -58,8 +58,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
+git clone https://github.com/Hi-Kung/rag-document-qa
+cd rag-document-qa
 ```
 
 ### 2. 安装依赖
